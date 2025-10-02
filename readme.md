@@ -1,4 +1,4 @@
-# 💊 1Pharmacy Network Hackathon – Postgres DB
+#  1Pharmacy Network Hackathon – Postgres DB
 
 This project implements a **high-performance medicine search system** on top of **PostgreSQL** and **FastAPI**, optimized for real-time lookups in large datasets (~280k+ records).  
 
@@ -7,24 +7,25 @@ The system supports:
 - **Substring search** (e.g., `Injection` → all medicines containing “Injection”)
 - **Full-text search** (e.g., `cancer` → all cancer-related medicines)
 - **Fuzzy search** (typo tolerance, e.g., `Avastn` → `Avastin`)
+- **Benchmark runner** (`/run-benchmark`) → executes all queries in `benchmark_queries.json` and generates `submission.json`.
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 ```
 .
-├── schema.sql           # SQL schema & indexes
-├── import_data.py       # Data import script (JSON → PostgreSQL)
-├── main.py              # FastAPI application with 4 search endpoints
-├── benchmark_queries.json # Sample benchmark queries
-├── benchmark.md         # Benchmarking results (latency, throughput, index usage)
-├── submission.json      # Final output for benchmark queries
-├── README.md            # Run instructions (this file)
+├── schema.sql             # SQL schema & indexes
+├── import_data.py         # Data import script (JSON → PostgreSQL)
+├── main.py                # FastAPI application with 5 endpoints (search + benchmark)
+├── benchmark_queries.json # Benchmark queries input
+├── benchmark.md           # Benchmarking results (latency, throughput, index usage)
+├── submission.json        # Final output for benchmark queries
+├── README.md              # Run instructions (this file)
 ```
 
 ---
 
-## ⚙️ 1. Setup Instructions
+## 1. Setup Instructions
 
 ### 1.1 Install Dependencies
 - Install [PostgreSQL 17+](https://www.postgresql.org/download/).
@@ -50,11 +51,11 @@ psql -U postgres -d pharmacydb -f schema.sql
 python import_data.py
 ```
 
-👉 This loads ~280k+ medicine records (from JSON files `a.json`–`z.json`) into PostgreSQL.
+This loads ~280k+ medicine records (from JSON files `a.json`–`z.json`) into PostgreSQL.
 
 ---
 
-## 🚀 2. Running the API
+## 2. Running the API
 
 Start the FastAPI server:
 ```bash
@@ -63,23 +64,28 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ### 2.1 Endpoints
 - **Prefix Search:**  
-  `/search/prefix?q=Ava`
+  `GET /search/prefix?q=Ava`
 - **Substring Search:**  
-  `/search/substring?q=Injection`
+  `GET /search/substring?q=Injection`
 - **Fuzzy Search:**  
-  `/search/fuzzy?q=Avastn`
+  `GET /search/fuzzy?q=Avastn`
 - **Full-text Search:**  
-  `/search/fulltext?q=cancer`
+  `GET /search/fulltext?q=cancer`
+- **Benchmark Runner:**  
+  `POST /run-benchmark`  
+  - Reads queries from `benchmark_queries.json`  
+  - Executes all (prefix, substring, fuzzy, full-text)  
+  - Saves results into `submission.json`  
+  - Returns results inline in Swagger response  
 
 ### 2.2 API Docs
-- Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)  
-- ReDoc UI: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)  
+- Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)   
 
 ---
 
-## 📊 3. Benchmarking
+##  3. Benchmarking
 
-### 3.1 Run Queries
+### 3.1 Run Queries (DB-level check)
 Open `psql`:
 ```bash
 psql -U postgres -d pharmacydb
@@ -93,24 +99,21 @@ EXPLAIN ANALYZE SELECT id, name FROM medicines WHERE name % 'Avastn' ORDER BY si
 EXPLAIN ANALYZE SELECT id, name FROM medicines WHERE search_tsv @@ plainto_tsquery('english', 'cancer') ORDER BY ts_rank_cd(search_tsv, plainto_tsquery('english','cancer')) DESC LIMIT 20;
 ```
 
-### 3.2 Measure
-- **Execution Time:** comes from `EXPLAIN ANALYZE` (e.g., 3.4 ms).
-- **Indexes Used:** look for `Bitmap Index Scan` lines in the plan.
-- **Throughput (qps):**  
-  ```
-  throughput = 1000 / latency_ms
-  ```
+### 3.2 Run Queries (via API)
+Use the new benchmark runner endpoint:
+```bash
+curl -X POST http://127.0.0.1:8000/run-benchmark
+```
 
-Example:
-- Prefix query: 3.4 ms → ~294 qps
-- Full-text query: 0.16 ms → ~6250 qps
+- Generates `submission.json` automatically.  
+- Results are also returned inline in the response.  
 
 ### 3.3 Report
 Results are documented in [`benchmark.md`](./benchmark.md).
 
 ---
 
-## ⚡ 4. Approach & Performance Strategy
+## 4. Approach & Performance Strategy
 
 ### 4.1 Data Storage
 - Dataset stored in a single table `medicines` (~280k rows).
@@ -148,16 +151,16 @@ To achieve high performance, we used PostgreSQL’s advanced indexing:
 
 ---
 
-## 📦 5. Deliverables
+## 5. Deliverables
 - `schema.sql` → schema + indexes
 - `import_data.py` → data import script
-- `main.py` → FastAPI REST API
+- `main.py` → FastAPI REST API with `/search/*` + `/run-benchmark`
 - `benchmark_queries.json` → benchmark inputs
 - `benchmark.md` → benchmark results
-- `submission.json` → expected format output
+- `submission.json` → generated results from benchmark
 - `README.md` → setup + documentation
 
 ---
 
-## 👨‍💻 Contributors
+## Contributors
 - **Pranav P Kulkarni**
